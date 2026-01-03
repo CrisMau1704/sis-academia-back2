@@ -14,11 +14,12 @@ use Illuminate\Support\Carbon;
 class HorarioController extends Controller
 {
     public function index(Request $request)
-    {
+{
+    try {
         $query = Horario::with(['disciplina', 'sucursal', 'entrenador', 'modalidad'])
-            ->latest();
+            ->where('estado', 'activo'); // Solo horarios activos por defecto
         
-        // Filtros
+        // FILTROS BÁSICOS
         if ($request->has('sucursal_id')) {
             $query->where('sucursal_id', $request->sucursal_id);
         }
@@ -39,13 +40,58 @@ class HorarioController extends Controller
             $query->whereRaw('cupo_actual < cupo_maximo');
         }
         
-        // Paginación
+        // NUEVOS FILTROS PARA INSCRIPCIONES
+        if ($request->has('modalidad_id')) {
+            $query->where('modalidad_id', $request->modalidad_id);
+        }
+        
+        if ($request->has('entrenador_id')) {
+            $query->where('entrenador_id', $request->entrenador_id);
+        }
+        
+        // Búsqueda por texto (nombre o descripción)
+        if ($request->has('q') && !empty($request->q)) {
+            $searchTerm = $request->q;
+            $query->where(function($q) use ($searchTerm) {
+                $q->where('nombre', 'like', "%{$searchTerm}%")
+                  ->orWhere('descripcion', 'like', "%{$searchTerm}%");
+            });
+        }
+        
+        // Ordenar por día de la semana (en orden lógico) y luego por hora
+        $query->orderByRaw("
+            CASE 
+                WHEN dia_semana = 'Lunes' THEN 1
+                WHEN dia_semana = 'Martes' THEN 2
+                WHEN dia_semana = 'Miércoles' THEN 3
+                WHEN dia_semana = 'Jueves' THEN 4
+                WHEN dia_semana = 'Viernes' THEN 5
+                WHEN dia_semana = 'Sábado' THEN 6
+                WHEN dia_semana = 'Domingo' THEN 7
+                ELSE 8
+            END
+        ")->orderBy('hora_inicio');
+        
+        // Paginación o todos
         if ($request->has('per_page')) {
             return $query->paginate($request->per_page);
         }
         
-        return $query->get();
+        // Si se pide con parámetro 'all', devolver todos
+        if ($request->has('all') && $request->all == 'true') {
+            return $query->get();
+        }
+        
+        // Por defecto, paginar con 100 items
+        return $query->paginate($request->get('limit', 100));
+        
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Error al obtener horarios: ' . $e->getMessage()
+        ], 500);
     }
+}
 
     public function store(Request $request)
     {
@@ -147,6 +193,89 @@ class HorarioController extends Controller
         
         return $horario;
     }
+
+    // Método para obtener horarios disponibles (con cupo)
+public function disponibles(Request $request)
+{
+    try {
+        $query = Horario::with(['disciplina', 'sucursal', 'entrenador', 'modalidad'])
+            ->where('estado', 'activo')
+            ->whereRaw('cupo_actual < cupo_maximo'); // Solo con cupo disponible
+        
+        // Filtros
+        if ($request->has('modalidad_id')) {
+            $query->where('modalidad_id', $request->modalidad_id);
+        }
+        
+        if ($request->has('sucursal_id')) {
+            $query->where('sucursal_id', $request->sucursal_id);
+        }
+        
+        // Ordenar
+        $query->orderByRaw("
+            CASE 
+                WHEN dia_semana = 'Lunes' THEN 1
+                WHEN dia_semana = 'Martes' THEN 2
+                WHEN dia_semana = 'Miércoles' THEN 3
+                WHEN dia_semana = 'Jueves' THEN 4
+                WHEN dia_semana = 'Viernes' THEN 5
+                WHEN dia_semana = 'Sábado' THEN 6
+                WHEN dia_semana = 'Domingo' THEN 7
+                ELSE 8
+            END
+        ")->orderBy('hora_inicio');
+        
+        return $query->get();
+        
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Error al obtener horarios disponibles: ' . $e->getMessage()
+        ], 500);
+    }
+}
+
+// Método para obtener horarios por modalidad
+public function porModalidad($modalidadId, Request $request)
+{
+    try {
+        $query = Horario::with(['disciplina', 'sucursal', 'entrenador', 'modalidad'])
+            ->where('modalidad_id', $modalidadId)
+            ->where('estado', 'activo');
+        
+        // Filtro por sucursal
+        if ($request->has('sucursal_id')) {
+            $query->where('sucursal_id', $request->sucursal_id);
+        }
+        
+        // Solo con cupo disponible
+        if ($request->has('con_cupo') && $request->con_cupo == 'true') {
+            $query->whereRaw('cupo_actual < cupo_maximo');
+        }
+        
+        // Ordenar
+        $query->orderByRaw("
+            CASE 
+                WHEN dia_semana = 'Lunes' THEN 1
+                WHEN dia_semana = 'Martes' THEN 2
+                WHEN dia_semana = 'Miércoles' THEN 3
+                WHEN dia_semana = 'Jueves' THEN 4
+                WHEN dia_semana = 'Viernes' THEN 5
+                WHEN dia_semana = 'Sábado' THEN 6
+                WHEN dia_semana = 'Domingo' THEN 7
+                ELSE 8
+            END
+        ")->orderBy('hora_inicio');
+        
+        return $query->get();
+        
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Error al obtener horarios por modalidad: ' . $e->getMessage()
+        ], 500);
+    }
+}
 
     public function update(Request $request, $id)
     {

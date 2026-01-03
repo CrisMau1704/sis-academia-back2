@@ -111,7 +111,7 @@ class Horario extends Model
                         'id',
                         'clases_asistidas',
                         'clases_totales',
-                        'clases_restantes',
+                      
                         'permisos_usados',
                         'fecha_inicio',
                         'fecha_fin',

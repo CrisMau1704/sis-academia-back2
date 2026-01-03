@@ -11,6 +11,8 @@ use App\Http\Controllers\SucursalController;
 use App\Http\Controllers\EntrenadorController;
 use App\Http\Controllers\DisciplinaController;
 
+use App\Http\Controllers\PagoController; // <-- AÑADE ESTA LÍNEA
+
 use App\Http\Controllers\UserRoleController;
 use App\Http\Controllers\UserController;
 
@@ -69,12 +71,16 @@ Route::prefix('horarios')->group(function () {
     Route::put('/{id}/estado', [HorarioController::class, 'cambiarEstado']);
     Route::post('/{id}/incrementar-cupo', [HorarioController::class, 'incrementarCupo']);
     Route::post('/{id}/decrementar-cupo', [HorarioController::class, 'decrementarCupo']);
-}); 
+    
+    // NUEVA RUTA PARA HORARIOS POR MODALIDAD - Agrega esta línea
+    Route::get('/modalidad/{modalidadId}', [HorarioController::class, 'porModalidad']);
+});
 
 // routes/api.php
 
 Route::prefix('inscripciones')->group(function () {
     Route::get('/', [InscripcionController::class, 'index']);
+    Route::get('/todas', [InscripcionController::class, 'obtenerTodos']); // <-- AGREGAR ESTA LÍNEA
     Route::post('/', [InscripcionController::class, 'store']);
     Route::get('/{id}', [InscripcionController::class, 'show']);
     Route::put('/{id}', [InscripcionController::class, 'update']);
@@ -85,6 +91,18 @@ Route::prefix('inscripciones')->group(function () {
     Route::delete('/{inscripcionId}/horarios/{horarioId}', [InscripcionController::class, 'desasociarHorario']);
     Route::post('/{id}/renovar', [InscripcionController::class, 'renovar']);
     Route::post('/verificar-vencimientos', [InscripcionController::class, 'verificarVencimientos']);
+});
+
+
+Route::prefix('pagos')->group(function () {
+    Route::get('/', [PagoController::class, 'index']);
+    Route::post('/', [PagoController::class, 'store']);
+    Route::get('/{id}', [PagoController::class, 'show']);
+    Route::put('/{id}', [PagoController::class, 'update']);
+    Route::delete('/{id}', [PagoController::class, 'destroy']);
+    Route::get('/inscripcion/{inscripcion_id}', [PagoController::class, 'porInscripcion']);
+    Route::put('/{id}/anular', [PagoController::class, 'anular']);
+    Route::put('/{id}/confirmar', [PagoController::class, 'confirmar']);
 });
 
 
